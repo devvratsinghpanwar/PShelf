@@ -4,17 +4,20 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #333;
+  background-color: #dda15e;
   color: #f0f0f0;
 }
 
 .App {
+  margin: 0;
   height: 100%;
   max-width: 100%;
-  margin: 0 auto;
-  padding: 20px;
 }
 
+.chartjs-render-monitor {
+  height: 100% !important;
+  width: 100% !important;
+}
 
 
 .App-header h1 {

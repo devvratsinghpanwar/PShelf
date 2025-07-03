@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import ForecastChart from "./ForecastChart";
 
 interface ForecastData {
   date: string;
@@ -7,6 +8,8 @@ interface ForecastData {
 }
 
 type ProductID = "coke" | "chips" | "ice-cream";
+
+const products: ProductID[] = ["coke", "chips", "ice-cream"];
 
 const ProductDisplay = () => {
   const [forecastData, setForecastData] = useState<ForecastData[]>([]);
@@ -32,7 +35,9 @@ const ProductDisplay = () => {
         setForecastData(response.data);
       } catch (err) {
         console.error("Failed to fetch data:", err);
-        setError("Could not retrieve forecast data. Is the backend server running?");
+        setError(
+          "Could not retrieve forecast data. Is the backend server running?"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -42,46 +47,56 @@ const ProductDisplay = () => {
   }, [selectedProduct]);
 
   return (
-    <main className="flex flex-col items-center px-4">
-      <div className="text-center mb-6 bg-white p-6 rounded-xl shadow-md w-full max-w-md">
-        <h2 className="text-lg font-semibold mb-4 text-white bg-amber-300 rounded-2xl">Select a Product to Forecast</h2>
+    <main className="flex flex-col items-center px-4 mt-4">
+      <div className="text-center mb-6 bg-[#bc6c25] p-6 rounded-xl shadow-lg w-180">
+        <h2 className="text-2xl font-semibold mb-4 text-[#fefae0] bg-[#606c38] rounded-lg p-2">
+          Select a Product to Forecast
+        </h2>
         <div className="space-x-4">
-          {(["coke", "chips", "ice-cream"] as ProductID[]).map((product) => (
-            <button
-              key={product}
-              onClick={() => setSelectedProduct(product)}
-              disabled={selectedProduct === product}
-              className={`px-4 py-2 rounded-full font-bold text-sm transition-colors ${
-                selectedProduct === product
-                  ? "bg-gray-400 cursor-not-allowed text-white"
-                  : "bg-yellow-400 hover:bg-yellow-500 text-black"
-              }`}
-            >
-              {product.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            </button>
-          ))}
+          <select
+            value={selectedProduct}
+            onChange={(e) => setSelectedProduct(e.target.value as ProductID)}
+            className="p-2 rounded-md text-[#fefae0] font-semibold bg-[#606c38] border-none focus:outline-none  "
+          >
+            {products.map((prod) => (
+              <option key={prod} value={prod}>
+                {prod.charAt(0).toUpperCase() + prod.slice(1).replace("-", " ")}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+      <div className="flex flex-row items-center justify-center gap-6 w-full">
+        <div className="bg-transparent text-black p-6 rounded-lg shadow-2xl w-full min-w-80">
+          <h3 className="text-xl font-semibold mb-4">
+            7-Day Forecast for:{" "}
+            <span className="capitalize text-black dark:text-white">
+              {selectedProduct}
+            </span>
+          </h3>
 
-      <div className="bg-[#0071ce] text-white p-6 rounded-xl shadow-md w-full max-w-md">
-        <h3 className="text-xl font-semibold mb-4">
-          7-Day Forecast for:{" "}
-          <span className="capitalize text-yellow-300">{selectedProduct}</span>
-        </h3>
+          {isLoading ? (
+            <p className="text-sm">Loading forecast...</p>
+          ) : error ? (
+            <p className="text-red-500 font-bold">{error}</p>
+          ) : (
+            <ul className="divide-y divide-white/20">
+              {forecastData.map((item) => (
+                <li key={item.date} className="py-2">
+                  <strong>{item.date}:</strong> Expected Sales –{" "}
+                  {item.prediction} units
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-        {isLoading ? (
-          <p className="text-sm">Loading forecast...</p>
-        ) : error ? (
-          <p className="text-red-500 font-bold">{error}</p>
-        ) : (
-          <ul className="divide-y divide-white/20">
-            {forecastData.map((item) => (
-              <li key={item.date} className="py-2">
-                <strong>{item.date}:</strong> Expected Sales – {item.prediction} units
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="flex-shrink w-full min-h-95">
+          <ForecastChart
+            data={forecastData}
+            productName={selectedProduct.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+          />
+        </div>
       </div>
     </main>
   );

@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import { DesktopSidebar, Sidebar, SidebarLink } from "./ui/sidebar";
+import { DesktopSidebar, SidebarLink, useSidebar } from "./ui/sidebar";
 import {
   IconArrowLeft,
   IconBrandTabler,
@@ -10,17 +9,18 @@ import {
 import { motion } from "motion/react";
 
 export function SidebarDemo() {
+  const { open } = useSidebar();
   const links = [
     {
       label: "Dashboard",
-      href: "#",
+      href: "/dashboard",
       icon: (
         <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
     {
       label: "Profile",
-      href: "#",
+      href: "/profile",
       icon: (
         <IconUserBolt className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
@@ -40,10 +40,10 @@ export function SidebarDemo() {
       ),
     },
   ];
-  const [open, setOpen] = useState(false);
+  
   return (
-    <Sidebar open={open} setOpen={setOpen}>
-      <DesktopSidebar className="justify-between gap-10 rounded-2xl h-screen">
+    <>
+      <DesktopSidebar className="justify-between gap-10 rounded-r-2xl h-screen">
         <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
           {open ? <Logo /> : <LogoIcon />}
           <div className="mt-8 flex flex-col gap-2">
@@ -70,7 +70,7 @@ export function SidebarDemo() {
           />
         </div>
       </DesktopSidebar>
-    </Sidebar>
+    </>
   );
 }
 export const Logo = () => {
