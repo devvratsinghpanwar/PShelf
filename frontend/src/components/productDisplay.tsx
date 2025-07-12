@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import ForecastChart from "./ForecastChart";
 
 interface ForecastData {
   date: string;
@@ -89,13 +88,6 @@ const ProductDisplay = () => {
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="flex-shrink w-full min-h-95">
-          <ForecastChart
-            data={forecastData}
-            productName={selectedProduct.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-          />
         </div>
       </div>
     </main>
