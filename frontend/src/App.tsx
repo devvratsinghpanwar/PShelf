@@ -1,17 +1,14 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import "./App.css";
-import ProductDisplay from "./components/productDisplay";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import { NavbarComponent } from "./components/Navbar";
+import { HomePage } from "./pages/Home";
 
 function MainContent() {
   return (
     <div className="mt-20">
-      <ProductDisplay />
-      <ProductDisplay />
-      <ProductDisplay />
-      <ProductDisplay />
+      <HomePage />
     </div>
   );
 }
@@ -19,7 +16,7 @@ function MainContent() {
 function App() {
   return (
     <Router>
-      <div className="sticky top-0 App flex m-0">
+      <div className="sticky top-0 flex m-0 z-10">
         <NavbarComponent />
       </div>
       <div className="App flex m-0">

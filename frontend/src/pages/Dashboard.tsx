@@ -1,10 +1,10 @@
-import ProductDisplay from "@/components/productDisplay"
+
+import { GridBackgroundDemo } from "@/components/ui/gridBackground"
 
 const Dashboard = () => {
   return (
     <div>
-      <ProductDisplay/>
-      <ProductDisplay/>
+      <GridBackgroundDemo />
     </div>
   )
 }

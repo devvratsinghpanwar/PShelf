@@ -1,0 +1,216 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import random
+from datetime import date, timedelta
+
+# Initialize the FastAPI app
+app = FastAPI()
+
+# --- CORS Middleware Setup ---
+# This is crucial for allowing your React frontend (running on localhost:5173)
+# to communicate with this backend (running on localhost:8000).
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- MOCK API ENDPOINT ---
+
+@app.get("/api/predict/{product_id}")
+def get_mock_prediction(product_id: str):
+    """
+    This is a mock endpoint. It does not use a real AI model.
+    It returns a hardcoded 7-day forecast for a given product ID.
+    The data is slightly randomized to simulate a real-world scenario.
+    """
+    print(f"Received request for product_id: {product_id}") # For debugging in your terminal
+    
+    # Base prediction values for different products
+    if product_id == "coke":
+        base_prediction = 150
+    elif product_id == "chips":
+        base_prediction = 220
+    elif product_id == "ice-cream":
+        base_prediction = 90
+    else:
+        base_prediction = 50 # A default for any other product
+
+    # Generate a list of 7 days of forecast data
+    forecast_data = []
+    today = date.today()
+    for i in range(7):
+        current_date = today + timedelta(days=i)
+        # Add some random variation to make it look dynamic
+        prediction_value = base_prediction + random.randint(-20, 20)
+        
+        forecast_data.append({
+            "date": current_date.strftime("%Y-%m-%d"),
+            "prediction": prediction_value
+        })
+        
+    return forecast_data
+
+@app.get("/")
+def read_root():
+    """A simple root endpoint to check if the server is running."""
+    return {"status": "Predictive Shelf API is running!"}
+
+
+this is the testing
+-------------------------------------------------------------------------------------------------------------------
+
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from dotenv import load_dotenv
+import os
+import joblib
+import pandas as pd
+from datetime import datetime
+import requests
+from googleapiclient.discovery import build
+
+# --- App Initialization & Environment Variables ---
+# Load environment variables from .env file
+load_dotenv(dotenv_path="../.env") 
+
+app = FastAPI()
+
+# --- CORS Middleware ---
+origins = ["http://localhost:5173", "http://localhost:3000"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Model Loading ---
+# Load the pre-trained XGBoost model. This happens once when the app starts.
+try:
+    model = joblib.load("sales_model.pkl")
+    print("ML Model loaded successfully.")
+except FileNotFoundError:
+    print("ERROR: Model file 'sales_model.pkl' not found.")
+    model = None
+
+# --- External API Services ---
+def get_temperature(city: str, api_key: str) -> float | None:
+    """Fetches temperature for a city from OpenWeatherMap API."""
+    base_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    try:
+        response = requests.get(base_url)
+        response.raise_for_status() # Raises an exception for bad status codes (4xx or 5xx)
+        return response.json()['main']['temp']
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching temperature: {e}")
+        return None
+
+def is_holiday(date_str: str, api_key: str, country_code: str = 'en.usa') -> bool:
+    """Checks if a date is a public holiday using Google Calendar API."""
+    try:
+        service = build('calendar', 'v3', developerKey=api_key)
+        calendar_id = f'{country_code}#holiday@group.v.calendar.google.com'
+        
+        # Format date for the API
+        time_min = f"{date_str}T00:00:00Z"
+        time_max = f"{date_str}T23:59:59Z"
+        
+        events_result = service.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True
+        ).execute()
+        
+        return len(events_result.get('items', [])) > 0
+    except Exception as e:
+        print(f"Error checking for holidays: {e}")
+        return False # Default to not a holiday on error
+
+# --- API Endpoint Definition ---
+
+# Pydantic model for input validation
+class PredictionInput(BaseModel):
+    product_id: str # e.g., "coke", "chips". You can use this for item-specific features.
+    store_id: int   # e.g., 1, 2, 3 from the Walmart dataset
+    city: str       # e.g., "New York"
+    # Dummy features from the dataset that your frontend might provide
+    fuel_price: float = 3.8
+    cpi: float = 220.0
+
+@app.post("/api/predict")
+async def get_prediction(input_data: PredictionInput):
+    """
+    Receives input, fetches external data, and returns a real sales prediction.
+    """
+    if not model:
+        raise HTTPException(status_code=503, detail="ML Model is not loaded or available.")
+
+    # 1. Fetch data from external APIs
+    api_date = datetime.now().strftime("%Y-%m-%d")
+    print("Using OpenWeather API Key:", os.getenv("OPENWEATHER_API_KEY"))
+    temperature = get_temperature(input_data.city, os.getenv("OPENWEATHER_API_KEY"))
+    holiday_flag = is_holiday(api_date, os.getenv("GOOGLE_API_KEY"))
+
+    if temperature is None:
+        raise HTTPException(status_code=500, detail="Could not fetch weather data.")
+
+    # 2. Prepare data for the model
+    # The feature names MUST match the columns used in train.py
+    try:
+        date_obj = datetime.strptime(api_date, "%Y-%m-%d")
+        
+        feature_data = {
+            'Store': input_data.store_id,
+            'Holiday_Flag': 1 if holiday_flag else 0,
+            'Temperature': temperature,
+            'Month': date_obj.month,
+            'Year': date_obj.year,
+            'Day': date_obj.day,
+            'DayOfWeek': date_obj.weekday(),
+            'Fuel_Price': input_data.fuel_price,
+            'CPI': input_data.cpi,
+        }
+        
+        input_df = pd.DataFrame([feature_data])
+        
+        # Ensure column order is the same as in training
+        input_df = input_df[model.get_booster().feature_names]
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error preparing data for model: {e}")
+
+    # 3. Make prediction
+    prediction = model.predict(input_df)
+    
+    # The model returns a numpy array, so we get the first (and only) element
+    predicted_sales = prediction[0]
+    
+    # 4. Return the result
+    return {
+        "request_input": input_data.model_dump(),
+        "external_data": {
+            "date": api_date,
+            "temperature_celsius": float(temperature),
+            "is_holiday": holiday_flag,
+        },
+        "predicted_weekly_sales": round(float(predicted_sales), 2)
+    }
+
+@app.get("/")
+def read_root():
+    return {"status": "Predictive Shelf API is running!"}
+
+second main.py
+-------------------------------------------------------------------------------------------------
